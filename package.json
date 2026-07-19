@@ -1,0 +1,31 @@
+{
+    "name": "webhook-delivery-platform",
+    "version": "0.1.0",
+    "private": true,
+    "description": "From-scratch distributed job queue + webhook delivery platform",
+    "type": "module",
+    "engines": {
+        "node": ">=22"
+    },
+    "scripts": {
+        "dev:api": "tsx watch src/entrypoints/api.ts",
+        "dev:worker": "tsx watch src/entrypoints/worker.ts",
+        "dev:scheduler": "tsx watch src/entrypoints/scheduler.ts",
+        "typecheck": "tsc --noEmit",
+        "infra:up": "docker compose up -d",
+        "infra:down": "docker compose down",
+        "infra:logs": "docker compose logs -f"
+    },
+    "dependencies": {
+        "dotenv": "^16.4.5",
+        "fastify": "^5.0.0",
+        "ioredis": "^5.4.1",
+        "pg": "^8.13.0"
+    },
+    "devDependencies": {
+        "@types/node": "^24.0.0",
+        "@types/pg": "^8.11.10",
+        "tsx": "^4.19.0",
+        "typescript": "^5.6.0"
+    }
+}
