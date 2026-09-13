@@ -15,7 +15,8 @@
     "infra:up": "docker compose up -d",
     "infra:down": "docker compose down",
     "infra:logs": "docker compose logs -f",
-    "migrate": "tsx src/migrate.ts"
+    "migrate": "tsx src/migrate.ts",
+    "loadtest": "node scripts/loadtest.mjs"
   },
   "dependencies": {
     "dotenv": "^16.4.5",
