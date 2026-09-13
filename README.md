@@ -21,7 +21,7 @@ detectable. This project builds the machinery that handles all of it.
 | Source of truth    | PostgreSQL 16 (`pg`, raw SQL)     |
 | Coordination layer | Redis 7 (`ioredis`, no BullMQ)    |
 | Local infra        | Docker Compose                    |
-| Dashboard          | React + Vite *(planned, M8)*      |
+| Dashboard          | React 18 + Vite (`web/`)          |
 
 No ORM, no job-queue library. Those are the point.
 
@@ -108,24 +108,38 @@ docker compose start redis         # reconnects automatically
 | `pnpm dev:worker`   | Run a worker — scale by running N copies      |
 | `pnpm dev:scheduler`| Run the delayed-job scheduler                 |
 | `pnpm typecheck`    | `tsc --noEmit` — the real type gate           |
+| `pnpm loadtest`     | End-to-end load test (`scripts/loadtest.mjs`) |
 | `pnpm infra:up`     | Start Redis + Postgres                        |
 | `pnpm infra:down`   | Stop containers (data survives)               |
 
 `docker compose down -v` additionally deletes volumes — a full reset.
+
+### Dashboard (M8)
+
+```bash
+cd web
+pnpm dev          # http://localhost:5173
+```
+
+The Vite dev server proxies `/api/*` to the API on `:3000` (see
+`web/vite.config.ts`), so no CORS config is needed on the backend. The dashboard
+shows live queue depths, a filterable job list with per-job delivery-attempt
+timelines, a "send test event" producer, and a dead-letter queue with one-click
+replay. Run the `api`, `worker`, and `scheduler` alongside it.
 
 ---
 
 ## Roadmap
 
 - [x] **M1** — Scaffold, Docker infra, dependency-aware health check
-- [ ] **M2** — Job model, Postgres schema, enqueue endpoint
-- [ ] **M3** — Redis list queue + single worker (end-to-end delivery)
-- [ ] **M4** — Reliable queue: visibility timeout, ack/nack, retries, DLQ
-- [ ] **M5** — Delayed jobs (sorted set + sweeper), distributed lock in Lua
-- [ ] **M6** — Rate limiting: token bucket + sliding window, per tenant
-- [ ] **M7** — Idempotency keys, circuit breaker, HMAC-signed delivery
-- [ ] **M8** — React dashboard: queue depth, job states, retry/DLQ, charts
-- [ ] **M9** — Load test + architecture write-up
+- [x] **M2** — Job model, Postgres schema, enqueue endpoint
+- [x] **M3** — Redis list queue + single worker (end-to-end delivery)
+- [x] **M4** — Reliable queue: visibility timeout, ack/nack, retries, DLQ
+- [x] **M5** — Delayed jobs (sorted set + sweeper), distributed lock in Lua
+- [x] **M6** — Rate limiting: per-webhook token bucket
+- [x] **M7** — Idempotency keys, circuit breaker, HMAC-signed delivery
+- [x] **M8** — React dashboard: queue depth, job states, DLQ replay
+- [x] **M9** — Load test (`pnpm loadtest`) + [architecture write-up](ARCHITECTURE.md)
 
 ---
 
@@ -137,10 +151,21 @@ src/
 ├── logger.ts              # structured JSON logger, createLogger(scope)
 ├── redis.ts               # createRedis() factory — see note below
 ├── db.ts                  # pg Pool + query() helper
+├── queue.ts              # reliable queue: ready/inflight/leases/delayed/dlq (M4)
+├── backoff.ts            # exponential backoff + full jitter        (M4)
+├── lock.ts               # distributed lock (SET NX PX + Lua CAS)    (M5)
+├── ratelimit.ts          # per-webhook token bucket (Lua)            (M6)
+├── circuit.ts            # per-webhook circuit breaker (Lua)         (M7)
+├── idempotency.ts        # producer-side dedupe (reserve-first)      (M7)
 └── entrypoints/
-    ├── api.ts             # Fastify HTTP server
-    ├── worker.ts          # job consumer            (M3)
-    └── scheduler.ts       # delayed-job promoter    (M5)
+    ├── api.ts            # Fastify HTTP server
+    ├── worker.ts         # job consumer                              (M3/M4)
+    └── scheduler.ts      # promoter + reaper, leader-elected         (M5)
+
+web/                      # React + Vite operator dashboard          (M8)
+├── src/api.ts            # typed API client (talks to /api/* proxy)
+├── src/App.tsx           # stats, jobs, DLQ, live polling
+└── src/components/       # StatCards, JobsTable, JobDetail, DlqPanel, …
 ```
 
 **Why `createRedis()` is a factory, not a singleton:** Redis blocking commands

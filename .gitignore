@@ -1,8 +1,12 @@
 # dependencies
 node_modules/
 
-# docs
-docs/
+# docs (scratch) — but keep the interview notes tracked.
+# Note: ignore the CONTENTS (docs/*), not the directory (docs/), or the
+# negation below can't re-include a file whose parent dir is excluded.
+docs/*
+!docs/interview-notes.md
+!docs/how-its-built.md
 
 # build output
 dist/
