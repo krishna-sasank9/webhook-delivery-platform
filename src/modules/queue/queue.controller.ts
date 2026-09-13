@@ -30,6 +30,31 @@ export async function registerQueueRoutes(
   });
 
   /**
+   * GET /queue/dlq — the dead-lettered jobs waiting for a human.
+   *
+   * Read-only peek (LRANGE, not pop) hydrated into full job rows, so the
+   * dashboard can show *what* is stuck and why before anyone hits replay.
+   */
+  app.get<{ Querystring: { limit?: number } }>(
+    '/queue/dlq',
+    {
+      schema: {
+        querystring: {
+          type: 'object',
+          properties: {
+            limit: { type: 'integer', minimum: 1, maximum: 500, default: 100 },
+          },
+        },
+      },
+    },
+    async (request) => {
+      const limit = request.query.limit ?? 100;
+      const jobs = await jobService.listDlq(redis, limit);
+      return { jobs, count: jobs.length };
+    },
+  );
+
+  /**
    * POST /queue/dlq/replay
    *
    * Moves jobs from the DLQ back to ready. Use after fixing whatever was

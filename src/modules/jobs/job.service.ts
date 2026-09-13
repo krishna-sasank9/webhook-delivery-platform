@@ -313,6 +313,15 @@ export async function getById(id: string): Promise<Job> {
   return job;
 }
 
+/**
+ * Hydrate a list of dead job ids from the DLQ into full rows for the dashboard.
+ * Order-preserving; ids with no surviving row are dropped.
+ */
+export async function listDlq(redis: Redis, limit: number): Promise<Job[]> {
+  const ids = await queue.peekDlq(redis, limit);
+  return repository.findByIds(ids);
+}
+
 export async function listByTenant(filters: {
   tenant: string;
   state?: JobState;

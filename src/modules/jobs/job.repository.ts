@@ -58,6 +58,26 @@ export async function findById(id: string): Promise<Job | null> {
 }
 
 /**
+ * Fetch many jobs by id in one round trip, preserving the caller's order.
+ *
+ * Used to hydrate the DLQ view: Redis gives us the ordered list of dead job
+ * ids, and this turns them into full rows. `= ANY($1)` is one query for the
+ * whole set rather than N; the result is re-sorted to match `ids` because SQL
+ * makes no ordering promise. Missing ids are simply absent (a dead job whose
+ * row was cascade-deleted).
+ */
+export async function findByIds(ids: string[]): Promise<Job[]> {
+  if (ids.length === 0) return [];
+
+  const result = await query<JobRow>('SELECT * FROM jobs WHERE id = ANY($1)', [
+    ids,
+  ]);
+
+  const byId = new Map(result.rows.map((row) => [row.id, toJob(row)]));
+  return ids.map((id) => byId.get(id)).filter((job): job is Job => job != null);
+}
+
+/**
  * Move a job to a terminal or intermediate state, bumping the attempt counter.
  *
  * `updatedAt` is refreshed on every transition so the dashboard can show when

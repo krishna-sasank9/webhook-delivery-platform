@@ -18,6 +18,7 @@ import {
   listJobsSchema,
 } from './job.dto';
 import * as service from './job.service';
+import * as deliveryService from '../deliveries/delivery.service';
 
 export async function registerJobRoutes(
   app: FastifyInstance,
@@ -62,6 +63,22 @@ export async function registerJobRoutes(
     { schema: getJobSchema },
     async (request) => {
       return service.getById(request.params.id);
+    },
+  );
+
+  /**
+   * GET /jobs/:id/attempts — the delivery-attempt audit trail.
+   *
+   * getById first so a missing job is a clean 404 rather than an empty list
+   * that a caller can't distinguish from "job exists but never attempted".
+   */
+  app.get<{ Params: JobParams }>(
+    '/jobs/:id/attempts',
+    { schema: getJobSchema },
+    async (request) => {
+      await service.getById(request.params.id);
+      const attempts = await deliveryService.listAttempts(request.params.id);
+      return { attempts, count: attempts.length };
     },
   );
 

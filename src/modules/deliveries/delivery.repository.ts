@@ -17,6 +17,11 @@ export interface AttemptRecord {
   durationMs: number;
 }
 
+/** What a read returns — the record plus when it happened, for the dashboard. */
+export interface AttemptView extends AttemptRecord {
+  attemptedAt: string;
+}
+
 /**
  * The next audit-sequence number for a job's delivery attempts.
  *
@@ -54,7 +59,7 @@ export async function insert(record: AttemptRecord): Promise<void> {
   );
 }
 
-export async function findByJobId(jobId: string): Promise<AttemptRecord[]> {
+export async function findByJobId(jobId: string): Promise<AttemptView[]> {
   const result = await query<{
     jobid: string;
     attemptnumber: number;
@@ -62,6 +67,7 @@ export async function findByJobId(jobId: string): Promise<AttemptRecord[]> {
     responsebody: string | null;
     error: string | null;
     durationms: number;
+    attemptedat: Date;
   }>(
     `SELECT * FROM delivery_attempts
      WHERE jobId = $1
@@ -76,5 +82,6 @@ export async function findByJobId(jobId: string): Promise<AttemptRecord[]> {
     responseBody: row.responsebody,
     error: row.error,
     durationMs: row.durationms,
+    attemptedAt: row.attemptedat.toISOString(),
   }));
 }

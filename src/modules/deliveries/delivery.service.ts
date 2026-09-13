@@ -11,6 +11,7 @@ import { isRetryable } from '../../backoff';
 import { createLogger } from '../../logger';
 import type { Job } from '../../types';
 import * as attemptRepository from './delivery.repository';
+import type { AttemptView } from './delivery.repository';
 
 const log = createLogger('delivery');
 
@@ -27,6 +28,11 @@ export interface DeliveryResult {
   durationMs: number;
   /** False for permanent failures (4xx) — retrying would change nothing. */
   retryable: boolean;
+}
+
+/** The delivery-attempt audit trail for a job — the M8 dashboard timeline. */
+export async function listAttempts(jobId: string): Promise<AttemptView[]> {
+  return attemptRepository.findByJobId(jobId);
 }
 
 /**

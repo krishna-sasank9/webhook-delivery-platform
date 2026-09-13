@@ -254,6 +254,16 @@ export async function stats(redis: Redis): Promise<QueueStats> {
 }
 
 /**
+ * Look at the DLQ without removing anything (LRANGE) — for the dashboard.
+ *
+ * A read-only peek, unlike popDlq. The dashboard shows what is stuck so a human
+ * can decide whether to replay; it must not consume the queue just by looking.
+ */
+export async function peekDlq(redis: Redis, limit: number): Promise<string[]> {
+  return redis.lrange(DLQ, 0, limit - 1);
+}
+
+/**
  * Remove and return the oldest job id from the DLQ, or null if it is empty.
  *
  * Intentionally does NOT push to ready. Replaying a dead job is not a pure
