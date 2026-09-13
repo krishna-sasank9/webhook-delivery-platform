@@ -65,6 +65,20 @@ export async function listByTenant(tenant: string): Promise<Webhook[]> {
 }
 
 /**
+ * The HMAC signing secret for a webhook — the one time it leaves the DB after
+ * registration. Loaded separately from the webhook itself (see the repository)
+ * so it is only ever read when we are about to sign a delivery, and can never
+ * ride along in an API response by accident.
+ */
+export async function getSecret(id: string): Promise<string> {
+  const secret = await repository.findSecretById(id);
+  if (!secret) {
+    throw new NotFoundError('webhook not found');
+  }
+  return secret;
+}
+
+/**
  * Resolves a webhook that `tenant` is allowed to enqueue against.
  *
  * The ownership check is the security-critical part: without it, tenant A

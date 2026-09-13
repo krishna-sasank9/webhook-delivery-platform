@@ -43,7 +43,7 @@ app.get("/health", async (_request, reply) => {
 
 async function start(): Promise<void> {
   try {
-    await registerRoutes(app);
+    await registerRoutes(app, redis);
     await app.listen({ port: config.api.port, host: "0.0.0.0" });
     log.info("api listening", { port: config.api.port, env: config.env });
   } catch (err) {

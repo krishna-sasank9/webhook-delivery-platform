@@ -8,15 +8,20 @@
  */
 
 import type { FastifyError, FastifyInstance } from "fastify";
+import type Redis from "ioredis";
 
 import { AppError } from "./errors";
 import { createLogger } from "./logger";
 import { registerJobRoutes } from "./modules/jobs/job.controller";
+import { registerQueueRoutes } from "./modules/queue/queue.controller";
 import { registerWebhookRoutes } from "./modules/webhooks/webhook.controller";
 
 const log = createLogger("http");
 
-export async function registerRoutes(app: FastifyInstance): Promise<void> {
+export async function registerRoutes(
+  app: FastifyInstance,
+  redis: Redis,
+): Promise<void> {
   app.setErrorHandler((error: FastifyError, request, reply) => {
     if (error instanceof AppError) {
       return reply
@@ -44,5 +49,6 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
   });
 
   await registerWebhookRoutes(app);
-  await registerJobRoutes(app);
+  await registerJobRoutes(app, redis);
+  await registerQueueRoutes(app, redis);
 }

@@ -57,6 +57,68 @@ export async function findById(id: string): Promise<Job | null> {
   return row ? toJob(row) : null;
 }
 
+/**
+ * Move a job to a terminal or intermediate state, bumping the attempt counter.
+ *
+ * `updatedAt` is refreshed on every transition so the dashboard can show when
+ * a job last changed — and so M4's sweeper can spot jobs stuck in_flight.
+ */
+export async function updateState(input: {
+  id: string;
+  state: JobState;
+  incrementAttempts?: boolean;
+  lastError?: string | null;
+  /** Set when scheduling a retry; COALESCE leaves it untouched otherwise. */
+  runAt?: Date;
+}): Promise<Job | null> {
+  const result = await query<JobRow>(
+    `UPDATE jobs
+     SET state      = $2,
+         attempts   = attempts + $3,
+         lastError  = $4,
+         runAt      = COALESCE($5, runAt),
+         updatedAt  = now()
+     WHERE id = $1
+     RETURNING *`,
+    [
+      input.id,
+      input.state,
+      input.incrementAttempts ? 1 : 0,
+      input.lastError ?? null,
+      input.runAt ?? null,
+    ],
+  );
+
+  const row = result.rows[0];
+  return row ? toJob(row) : null;
+}
+
+/**
+ * Reset a dead job so it can be delivered again (DLQ replay).
+ *
+ * A replayed job starts a fresh life: state back to 'queued', attempts back to
+ * zero, lastError cleared, runAt set to now so it is due immediately. Resetting
+ * attempts is a deliberate policy choice — a replay happens *after* a human has
+ * fixed whatever was broken (endpoint back online, URL corrected), so the job
+ * deserves its full retry budget again rather than dying on the first hiccup.
+ */
+export async function resetForReplay(id: string): Promise<Job | null> {
+  const result = await query<JobRow>(
+    `UPDATE jobs
+     SET state      = 'queued',
+         attempts   = 0,
+         lastError  = NULL,
+         runAt      = now(),
+         updatedAt  = now()
+     WHERE id = $1
+     RETURNING *`,
+    [id],
+  );
+
+  const row = result.rows[0];
+  return row ? toJob(row) : null;
+}
+
 export async function findByTenant(filters: {
   tenant: string;
   state?: JobState;
